@@ -2,10 +2,19 @@ import { getLocalStorage } from "./utils.mjs";
 
 function renderCartContents() {
   const cartItems = getLocalStorage("so-cart");
-  const htmlItems = cartItems.map((item) => cartItemTemplate(item));
+  const uniqueCartItems = {};
+  cartItems.forEach((item) => {
+    if (uniqueCartItems[item.Id]) {
+      uniqueCartItems[item.Id].quantity += 1;
+    } else {
+      uniqueCartItems[item.Id] = { ...item, quantity: 1 };
+    }
+  });
+
+  const htmlItems = Object.values(uniqueCartItems).map(cartItemTemplate);
   document.querySelector(".product-list").innerHTML = htmlItems.join("");
 
-  totalInCart(cartItems);
+  totalInCart(Object.values(uniqueCartItems));
 }
 
 function cartItemTemplate(item) {
@@ -20,8 +29,8 @@ function cartItemTemplate(item) {
     <h2 class="card__name">${item.Name}</h2>
   </a>
   <p class="cart-card__color">${item.Colors[0].ColorName}</p>
-  <p class="cart-card__quantity">qty: 1</p>
-  <p class="cart-card__price">$${item.FinalPrice}</p>
+  <p class="cart-card__quantity">qty: ${item.quantity}</p>
+  <p class="cart-card__price">$${item.FinalPrice * item.quantity}</p>
 </li>`;
 
   return newItem;
@@ -29,13 +38,12 @@ function cartItemTemplate(item) {
 
 function totalInCart(itemsInCart) {
   let sum = 0;
-  const cartTotal = document.querySelector(".cart-footer");
   const totalPrice = document.querySelector(".cart-total");
   for (let i = 0; i < itemsInCart.length; i++) {
-    sum += itemsInCart[i].FinalPrice;
+    sum += itemsInCart[i].FinalPrice * itemsInCart[i].quantity;
   }
   if (itemsInCart.length > 0) {
-    cartTotal.style.display = "block";
+    // cartTotal.style.display = "block";
     totalPrice.innerHTML = `Total: ${sum.toFixed(2)}`;
   }
 }
