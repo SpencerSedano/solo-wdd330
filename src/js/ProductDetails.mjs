@@ -1,71 +1,110 @@
-import { getLocalStorage, setLocalStorage } from "./utils.mjs";
+import { setLocalStorage, getLocalStorage, alertMessage } from "./utils.mjs";
+
+function productDetailsTemplate(product) {
+  if (!product || Object.keys(product).length === 0) {
+    return `<p class="error">Product details not available.</p>`;
+  }
+
+  const colorOptions = (product.Colors || [])
+    .map((color, index) => {
+      console.log("Color Data:", color);
+      return `
+      <div class="color-swatch ${index === 0 ? "selected" : ""}" 
+           data-color="${color.ColorName || "Unknown"}" 
+           style="background-image: url(${color.ColorPreviewImageSrc}); background-size: cover;" 
+           title="${color.ColorName || "Unknown"}">
+      </div>`;
+    })
+    .join("");
+
+  return `<section class="product-detail">
+    <h3>${product.Brand?.Name || "Unknown Brand"}</h3>
+    <h2 class="divider">${product.NameWithoutBrand || "Unknown Product"}</h2>
+    <img class="divider" src="${product.Images?.PrimaryLarge || ""}" alt="${product.NameWithoutBrand || "Product image"}" />
+    <p class="product-card__price">$${product.FinalPrice || "N/A"}</p>
+    <div class="product__colors">
+      <p>Available Colors:</p>
+      <div class="color-swatch-container">${colorOptions}</div>
+      <p id="selected-color">Selected Color: ${product.Colors?.[0]?.ColorName || "None"}</p>
+    </div>
+    <p class="product__description">${product.DescriptionHtmlSimple || "No description available."}</p>
+    <div class="product-detail__add">
+      <button id="addToCart" data-id="${product.Id || ""}">Add to Cart</button>
+    </div>
+  </section>`;
+}
 
 export default class ProductDetails {
   constructor(productId, dataSource) {
     this.productId = productId;
     this.product = {};
     this.dataSource = dataSource;
+    this.selectedColor = null;
   }
 
   async init() {
-    // use the datasource to get the details for the current product. findProductById will return a promise! use await or .then() to process it
-    this.product = await this.dataSource.findProductById(this.productId);
-    // the product details are needed before rendering the HTML
-    this.renderProductDetails();
-    // once the HTML is rendered, add a listener to the Add to Cart button
-    // Notice the .bind(this). This callback will not work if the bind(this) is missing. Review the readings from this week on "this" to understand why.
-    document
-      .getElementById("add-to-cart")
-      .addEventListener("click", this.addProductToCart.bind(this));
+    try {
+      console.log("Fetching product details for ID:", this.productId);
+      this.product = await this.dataSource.findProductById(this.productId);
+      console.log("Product Data:", this.product);
+      if (!this.product) {
+        throw new Error(`Product with ID ${this.productId} not found.`);
+      }
+      this.renderProductDetails("main");
+      this.addColorSelectionListener();
+      document
+        .getElementById("addToCart")
+        ?.addEventListener("click", this.addToCart.bind(this));
+    } catch (error) {
+      console.error("Error initializing ProductDetails:", error);
+      document.querySelector("main").innerHTML =
+        `<p class='error'>Failed to load product details.</p>`;
+    }
   }
 
-  addProductToCart() {
-    const cartItems = getLocalStorage("so-cart") || [];
-    cartItems.push(this.product);
-    setLocalStorage("so-cart", cartItems);
+  addColorSelectionListener() {
+    const swatches = document.querySelectorAll(".color-swatch");
+    const selectedColorElement = document.getElementById("selected-color");
+    if (!swatches.length) return;
+
+    swatches.forEach((swatch) => {
+      swatch.addEventListener("click", (event) => {
+        const selectedColor = event.target.dataset.color;
+        this.selectedColor = selectedColor;
+        selectedColorElement.textContent = `Selected Color: ${selectedColor}`;
+        document
+          .querySelectorAll(".color-swatch")
+          .forEach((s) => s.classList.remove("selected"));
+        event.target.classList.add("selected");
+      });
+    });
   }
 
-  renderProductDetails() {
-    productDetailsTemplate(this.product);
+  addToCart() {
+    if (!this.selectedColor && this.product.Colors?.length) {
+      this.selectedColor = this.product.Colors[0].ColorName;
+    }
+
+    if (!this.selectedColor) {
+      alert("Please select a color before adding to cart.");
+      return;
+    }
+
+    let cartContents = getLocalStorage("so-cart") || [];
+    const productToAdd = { ...this.product, SelectedColor: this.selectedColor };
+    cartContents.push(productToAdd);
+    setLocalStorage("so-cart", cartContents);
+    alertMessage(
+      `${this.product.NameWithoutBrand || "Product"} (${productToAdd.SelectedColor}) added to cart!`,
+    );
+  }
+
+  renderProductDetails(selector) {
+    const container = document.querySelector(selector);
+    if (!container) {
+      console.error("Invalid selector for rendering product details.");
+      return;
+    }
+    container.innerHTML = productDetailsTemplate(this.product);
   }
 }
-
-function productDetailsTemplate(product) {
-  document.querySelector("h2").textContent =
-    product.Category.charAt(0).toUpperCase() + product.Category.slice(1);
-  document.querySelector("#p-brand").textContent = product.Brand.Name;
-  document.querySelector("#p-name").textContent = product.NameWithoutBrand;
-
-  const productImage = document.querySelector("#p-image");
-  productImage.src = product.Images.PrimaryExtraLarge;
-  productImage.alt = product.NameWithoutBrand;
-  const euroPrice = new Intl.NumberFormat("de-DE", {
-    style: "currency",
-    currency: "EUR",
-  }).format(Number(product.FinalPrice) * 0.85);
-  document.querySelector("#p-price").textContent = `${euroPrice}`;
-  document.querySelector("#p-color").textContent = product.Colors[0].ColorName;
-  document.querySelector("#p-description").innerHTML =
-    product.DescriptionHtmlSimple;
-
-  document.querySelector("#add-to-cart").dataset.id = product.Id;
-}
-
-// ************* Alternative Display Product Details Method *******************
-// function productDetailsTemplate(product) {
-//   return `<section class="product-detail"> <h3>${product.Brand.Name}</h3>
-//     <h2 class="divider">${product.NameWithoutBrand}</h2>
-//     <img
-//       class="divider"
-//       src="${product.Image}"
-//       alt="${product.NameWithoutBrand}"
-//     />
-//     <p class="product-card__price">$${product.FinalPrice}</p>
-//     <p class="product__color">${product.Colors[0].ColorName}</p>
-//     <p class="product__description">
-//     ${product.DescriptionHtmlSimple}
-//     </p>
-//     <div class="product-detail__add">
-//       <button id="addToCart" data-id="${product.Id}">Add to Cart</button>
-//     </div></section>`;
-// }

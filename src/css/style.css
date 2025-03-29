@@ -286,8 +286,30 @@ button {
 
 .cart-card__price {
   grid-row: 2;
-
   grid-column: 3;
+}
+
+.color-swatch-container {
+  display: flex;
+  gap: 0.5em;
+  margin: 1em 0;
+}
+
+.color-swatch {
+  width: 30px;
+  height: 30px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.color-swatch.selected {
+  border-color: var(--primary-color);
+}
+
+#selected-color {
+  margin-top: 0.5em;
+  font-weight: bold;
 }
 
 @media screen and (min-width: 500px) {
