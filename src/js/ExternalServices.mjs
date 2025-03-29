@@ -1,4 +1,4 @@
-const baseURL = "http://server-nodejs.cit.byui.edu:3000/";
+const baseURL = "https://server-nodejs.cit.byui.edu:3000/";
 
 async function convertToJson(res) {
   const data = await res.json();
